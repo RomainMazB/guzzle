@@ -517,6 +517,61 @@ class ClientTest extends TestCase
         );
     }
 
+    public function testCanSendArrayValuesInMultipart()
+    {
+        $mock = new MockHandler([new Response()]);
+        $client = new Client(['handler' => $mock]);
+        $client->post('http://foo.com', [
+            'multipart' => [
+                [
+                    'name' => 'simple',
+                    'contents' => ['foo', 'bar'],
+                ],
+                [
+                    'name' => 'nested',
+                    'contents' => [
+                        ['id' => 'baz'],
+                        ['id' => 'foobar']
+                    ],
+                ],
+            ],
+        ]);
+
+        $last = $mock->getLastRequest();
+        self::assertStringContainsString(
+            'multipart/form-data; boundary=',
+            $last->getHeaderLine('Content-Type')
+        );
+
+        self::assertStringContainsString(
+            'Content-Disposition: form-data; name="simple[0]"',
+            (string) $last->getBody()
+        );
+
+        self::assertStringContainsString('foo', (string) $last->getBody());
+
+        self::assertStringContainsString(
+            'Content-Disposition: form-data; name="simple[1]"'."\r\n",
+            (string) $last->getBody()
+        );
+
+        self::assertStringContainsString('bar', (string) $last->getBody());
+
+        self::assertStringContainsString(
+            'Content-Disposition: form-data; name="nested[0][id]"'."\r\n",
+            (string) $last->getBody()
+        );
+
+        self::assertStringContainsString('baz', (string) $last->getBody());
+
+        self::assertStringContainsString(
+            'Content-Disposition: form-data; name="nested[1][id]"'."\r\n",
+            (string) $last->getBody()
+        );
+
+        self::assertStringContainsString('foobar', (string) $last->getBody());
+    }
+
     public function testCanSendMultipartWithExplicitBody()
     {
         $mock = new MockHandler([new Response()]);
